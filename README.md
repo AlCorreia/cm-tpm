@@ -19,7 +19,7 @@ The notebooks are configured to run each experiment 5 times with random seeds in
 
 The data used in all experiments is publicly available and automatically downloaded in the corresponding notebooks (see `dataset.py`).
 
-We use [Pytorch Lightning](https://www.pytorchlightning.ai/) to manage training, so checkpoints are automatically saved `/logs/<dataset>/<model_type>/`.
+We use [Pytorch Lightning](https://www.pytorchlightning.ai/) to manage training and logging, so checkpoints are automatically saved `/logs/<dataset>/<model_type>/`.
 
 ### Continuous Mixtures
 The following notebooks will train continuous mixtures on each of the datasets considered. 

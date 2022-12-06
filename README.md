@@ -1,6 +1,6 @@
 # Continuous Mixtures of Tractable Probabilistic Models
 
-This repository is the official implementation of Continuous Mixtures of Tractable Probabilistic Models. 
+This repository is the official implementation of [Continuous Mixtures of Tractable Probabilistic Models](https://arxiv.org/abs/2209.10584) to appear at AAAI 2023. 
 
 ## Requirements
 

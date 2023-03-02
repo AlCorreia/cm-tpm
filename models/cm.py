@@ -104,7 +104,8 @@ class GaussianDecoder(nn.Module):
         n_chunks: Optional[int] = None
     ):
         if self.learn_std:
-            mu, logvar = self.net(z)
+            mu_logvar = self.net(z)
+            mu, logvar = mu_logvar.chunk(2, dim=1)
             mu = self.mu_activation(mu)
             std = torch.clamp(torch.exp(0.5 * logvar), min=self.min_std, max=self.max_std)
         else:
@@ -124,7 +125,8 @@ class GaussianDecoder(nn.Module):
         device: str = 'cuda'
     ):
         if self.learn_std:
-            mu, logvar = self.net(z.to(device))
+            mu_logvar = self.net(z.to(device))
+            mu, logvar = mu_logvar.chunk(2, dim=1)
             mu = self.mu_activation(mu)
             std = torch.clamp(torch.exp(0.5 * logvar), min=self.min_std, max=self.max_std)
             samples = Normal(mu, std * std_correction).sample()

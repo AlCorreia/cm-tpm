@@ -106,7 +106,7 @@ class GaussianDecoder(nn.Module):
         if self.learn_std:
             mu, logvar = self.net(z)
             mu = self.mu_activation(mu)
-            std = torch.clamp(torch.exp(0.5 * self.logvar), min=self.min_std, max=self.max_std)
+            std = torch.clamp(torch.exp(0.5 * logvar), min=self.min_std, max=self.max_std)
         else:
             mu = self.net(z)
             mu = self.mu_activation(mu)
@@ -126,7 +126,7 @@ class GaussianDecoder(nn.Module):
         if self.learn_std:
             mu, logvar = self.net(z.to(device))
             mu = self.mu_activation(mu)
-            std = torch.clamp(torch.exp(0.5 * self.logvar), min=self.min_std, max=self.max_std)
+            std = torch.clamp(torch.exp(0.5 * logvar), min=self.min_std, max=self.max_std)
             samples = Normal(mu, std * std_correction).sample()
         else:
             mu = self.mu_activation(self.net(z.to(device)))

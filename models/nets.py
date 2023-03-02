@@ -63,8 +63,9 @@ def mnist_conv_decoder(
     latent_dim: int,
     n_filters: int,
     batch_norm: bool = True,
-    final_act=None,
+    final_act: nn.Module = None,
     bias: bool = False,
+    learn_std: bool = False,
     resblock: bool = False,
 ):
     nf = n_filters
@@ -96,7 +97,8 @@ def mnist_conv_decoder(
         decoder.append(ResBlockOord(nf))
 
     # state size. (nf*2) x 16 x 16
-    decoder.append(nn.ConvTranspose2d(nf, 1, 3, 2, 2, 1, bias=bias))
+    out_channels = 2 if learn_std else 1
+    decoder.append(nn.ConvTranspose2d(nf, out_channels, 3, 2, 2, 1, bias=bias))
 
     if final_act is not None:
         decoder.append(final_act)
@@ -108,8 +110,9 @@ def svhn_conv_decoder(
     latent_dim: int,
     n_filters: int,
     batch_norm: bool = True,
-    final_act=None,
+    final_act: nn.Module = None,
     bias: bool = False,
+    learn_std: bool = False,
     resblock: bool = False,
 ):
     nf = n_filters
@@ -141,7 +144,8 @@ def svhn_conv_decoder(
         decoder.append(ResBlockOord(nf))
 
     # state size. (nf) x 16 x 16
-    decoder.append(nn.ConvTranspose2d(nf, 3, 4, 2, 1, bias=bias))
+    out_channels = 6 if learn_std else 3
+    decoder.append(nn.ConvTranspose2d(nf, out_channels, 4, 2, 1, bias=bias))
 
     if final_act is not None:
         decoder.append(final_act)

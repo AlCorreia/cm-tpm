@@ -1,7 +1,7 @@
 from torch.utils.data import DataLoader
 from torch.distributions import Normal
 from typing import Callable, Optional
-from utils.losses import bce, mse
+from utils.losses import bce, mse, ce
 import pytorch_lightning as pl
 from tqdm import tqdm
 import torch.nn as nn
@@ -76,6 +76,28 @@ class BernoulliDecoder(nn.Module):
         logits_p = self.net(z)
         logits_p_chunks = tuple([logits_p]) if n_chunks is None else logits_p.split(int(logits_p.size(0) / n_chunks), 0)
         log_prob_bins = torch.cat([bce(logits_p_chunk, x, missing) for logits_p_chunk in logits_p_chunks], dim=1)
+        return log_prob_bins
+    
+    
+class CategoricalDecoder(nn.Module):
+
+    def __init__(
+        self,
+        net
+    ):
+        super(CategoricalDecoder, self).__init__()
+        self.net = net
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        z: torch.Tensor,
+        missing: Optional[bool] = None,
+        n_chunks: Optional[int] = None
+    ):
+        logits_p = self.net(z)
+        logits_p_chunks = tuple([logits_p]) if n_chunks is None else logits_p.split(int(logits_p.size(0) / n_chunks), 0)
+        log_prob_bins = torch.cat([ce(logits_p_chunk, x, missing) for logits_p_chunk in logits_p_chunks], dim=1)
         return log_prob_bins
 
 

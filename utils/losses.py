@@ -2,6 +2,7 @@ from typing import Optional
 from numbers import Real
 import torch
 import math
+from torch.distributions import Independent, Categorical
 
 
 def bce(
@@ -42,4 +43,17 @@ def mse(
         log_prob = log_prob * mask
     if dim_start_sum is not None:
         log_prob = log_prob.sum(dim=[i for i in range(2, log_prob.ndim)])
+    return log_prob
+
+
+def ce(
+    logits_p: torch.Tensor,
+    x: torch.Tensor,
+    missing: Optional[bool] = None,
+    dim_start_sum: Optional[int] = 2,
+    eps: float = 1e-7
+):
+    x = torch.nan_to_num(x)
+    dist = Independent(Categorical(logits=logits_p.permute(0, 2, 3, 1)), x.ndim - 2)
+    log_prob = dist.log_prob(x.float())
     return log_prob

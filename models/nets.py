@@ -67,6 +67,7 @@ def mnist_conv_decoder(
     bias: bool = False,
     learn_std: bool = False,
     resblock: bool = False,
+    out_channels: int = None
 ):
     nf = n_filters
     decoder = nn.Sequential()   
@@ -97,7 +98,8 @@ def mnist_conv_decoder(
         decoder.append(ResBlockOord(nf))
 
     # state size. (nf*2) x 16 x 16
-    out_channels = 2 if learn_std else 1
+    if not out_channels:
+        out_channels = 2 if learn_std else 1
     decoder.append(nn.ConvTranspose2d(nf, out_channels, 3, 2, 2, 1, bias=bias))
 
     if final_act is not None:

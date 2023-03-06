@@ -97,21 +97,21 @@ class CategoricalDecoder(nn.Module):
         self.net = net
 
     def forward(
-            self,
-            x: torch.Tensor,
-            log_w: torch.Tensor,
-            z: torch.Tensor,
-            k: Optional[int] = None,
-            missing: Optional[bool] = None,
-            n_chunks: Optional[int] = None,
+        self,
+        x: torch.Tensor,
+        log_w: torch.Tensor,
+        z: torch.Tensor,
+        k: Optional[int] = None,
+        missing: Optional[bool] = None,
+        n_chunks: Optional[int] = None,
     ):
         z_chunks = tuple([z]) if n_chunks is None else z.chunk(n_chunks, dim=0)
         batch_size = x.shape[0]
         if k is not None:
             with torch.no_grad():
                 # Run approximate posterior to find the 'best' k z values for each x
-                log_prob_bins = torch.cat([ce_loss(self.net(z_chunk), x, k=None, missing=missing) for z_chunk in z_chunks],
-                                          dim=1)
+                log_prob_bins = torch.cat(
+                    [ce_loss(self.net(z_chunk), x, k=None, missing=missing) for z_chunk in z_chunks], dim=1)
                 log_prob_bins = log_prob_bins + log_w.unsqueeze(0)
                 z_top_k = z[torch.topk(log_prob_bins, k=k, dim=-1)[1]]  # shape (batch_size, k, latent_dim)
             log_prob_bins_top_k = ce_loss(self.net(z_top_k.view(batch_size * k, -1)), x, k=k, missing=missing)
@@ -225,7 +225,7 @@ class ContinuousMixture(pl.LightningModule):
         if z is None:
             z, log_w = self.sampler(seed=seed)
         log_prob_bins = self.decoder.forward(x, log_w.to(x.device), z.to(x.device), k, self.missing, self.n_chunks)
-        assert log_prob_bins.size() == (x.size(0), z.size(0))
+        assert log_prob_bins.size() == (x.size(0), z.size(0)) or log_prob_bins.size() == (x.size(0), k)
         log_prob = torch.logsumexp(log_prob_bins, dim=1, keepdim=False)
         return log_prob
 

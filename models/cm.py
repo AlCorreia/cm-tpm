@@ -106,6 +106,7 @@ class CategoricalDecoder(nn.Module):
             n_chunks: Optional[int] = None,
     ):
         z_chunks = tuple([z]) if n_chunks is None else z.chunk(n_chunks, dim=0)
+        batch_size = x.shape[0]
         if k is not None:
             with torch.no_grad():
                 # Run approximate posterior to find the 'best' k z values for each x
@@ -260,7 +261,7 @@ class ContinuousMixture(pl.LightningModule):
     ):
         self.eval()
         loader = tqdm(loader) if progress_bar else loader
-        lls = torch.cat([self.forward(x.to(device), z, log_w, k=None, seed) for x in loader], dim=0)
+        lls = torch.cat([self.forward(x.to(device), z, log_w, k=None, seed=seed) for x in loader], dim=0)
         assert len(lls) == len(loader.dataset)
         return lls
 

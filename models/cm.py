@@ -49,7 +49,7 @@ class CLTBernoulliDecoder(nn.Module):
         x_doubled = torch.cat([x, x], dim=1).view(-1, 2, self.n_features).permute(0, 2, 1)
 
         log_prob_chunks = []
-        logits_p_chunks = tuple([logits_p]) if n_chunks is None else logits_p.split(int(logits_p.size(0) / n_chunks), 0)
+        logits_p_chunks = tuple([logits_p]) if n_chunks is None else logits_p.chunk(n_chunks, dim=0)
         for logits_p_chunk in logits_p_chunks:
             lls = bce(logits_p_chunk, x_doubled, dim_start_sum=None)
             log_prob_chunks.append(torch.einsum('bijk, bjk -> bij', lls, x_cond).sum(-1))
@@ -74,7 +74,7 @@ class BernoulliDecoder(nn.Module):
         n_chunks: Optional[int] = None
     ):
         logits_p = self.net(z)
-        logits_p_chunks = tuple([logits_p]) if n_chunks is None else logits_p.split(int(logits_p.size(0) / n_chunks), 0)
+        logits_p_chunks = tuple([logits_p]) if n_chunks is None else logits_p.chunk(n_chunks, dim=0)
         log_prob_bins = torch.cat([bce(logits_p_chunk, x, missing) for logits_p_chunk in logits_p_chunks], dim=1)
         return log_prob_bins
     
@@ -96,7 +96,7 @@ class CategoricalDecoder(nn.Module):
         n_chunks: Optional[int] = None
     ):
         logits_p = self.net(z)
-        logits_p_chunks = tuple([logits_p]) if n_chunks is None else logits_p.split(int(logits_p.size(0) / n_chunks), 0)
+        logits_p_chunks = tuple([logits_p]) if n_chunks is None else logits_p.chunk(n_chunks, dim=0)
         log_prob_bins = torch.cat([ce(logits_p_chunk, x, missing) for logits_p_chunk in logits_p_chunks], dim=1)
         return log_prob_bins
 
@@ -134,8 +134,7 @@ class GaussianDecoder(nn.Module):
             mu = self.net(z)
             mu = self.mu_activation(mu)
             std = torch.full_like(mu, fill_value=self.min_std)
-        chunk_dim = mu.size(0) if n_chunks is None else int(mu.size(0) / n_chunks)
-        mu_std_chunks = [[mu], [std]] if n_chunks is None else [[*mu.split(chunk_dim, 0)], [*std.split(chunk_dim, 0)]]
+        mu_std_chunks = [[mu], [std]] if n_chunks is None else [[*mu.chunk(n_chunks, 0)], [*std.chunk(n_chunks, 0)]]
         log_prob = torch.cat(
             [mse(mu_std_chunks[0][i], mu_std_chunks[1][i], x, missing) for i in range(len(mu_std_chunks[0]))], dim=1)
         return log_prob

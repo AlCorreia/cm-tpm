@@ -222,6 +222,7 @@ class ContinuousMixture(pl.LightningModule):
         self.log('valid_loss', loss, prog_bar=True, logger=True, on_step=True, on_epoch=True)
         return loss
 
+    @torch.no_grad()
     def eval_loader(
         self,
         loader: DataLoader,
@@ -233,11 +234,7 @@ class ContinuousMixture(pl.LightningModule):
     ):
         self.eval()
         loader = tqdm(loader) if progress_bar else loader
-        with torch.no_grad():
-            lls = []
-            for x in loader:
-                lls.append(self.forward(x.to(device), z, log_w, seed))
-        lls = torch.cat(lls, dim=0)
+        lls = torch.cat([self.forward(x.to(device), z, log_w, seed) for x in loader], dim=0)
         assert len(lls) == len(loader.dataset)
         return lls
 

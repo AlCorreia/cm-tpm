@@ -116,6 +116,7 @@ def svhn_conv_decoder(
     bias: bool = False,
     learn_std: bool = False,
     resblock: bool = False,
+    out_channels: int = None
 ):
     nf = n_filters
     decoder = nn.Sequential()
@@ -146,7 +147,8 @@ def svhn_conv_decoder(
         decoder.append(ResBlockOord(nf))
 
     # state size. (nf) x 16 x 16
-    out_channels = 6 if learn_std else 3
+    if not out_channels:
+        out_channels = 6 if learn_std else 3
     decoder.append(nn.ConvTranspose2d(nf, out_channels, 4, 2, 1, bias=bias))
 
     if final_act is not None:

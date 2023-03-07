@@ -67,6 +67,7 @@ def ce_loss(
     x = torch.nan_to_num(x)
 
     if k is None:
+        k = n_bins  # k is actually equal to n_bins in this case
         # Categorical probs as last dimension
         logits_p = torch.movedim(logits_p, 1, -1)
         # Create categorical distribution
@@ -84,10 +85,11 @@ def ce_loss(
         dist = Categorical(logits=logits_p)
         # Compute log-probs for each of x against corresponding k logits
         # This is done by expanding the first dimension of x to batch_size * k
+        mask = mask.repeat_interleave(k, dim=0)
         x = x.repeat_interleave(k, dim=0)
         log_prob = dist.log_prob(x.float())
 
     log_prob = log_prob * mask
     if dim_start_sum is not None:
         log_prob = log_prob.sum(dim=[i for i in range(dim_start_sum, log_prob.ndim)])
-    return log_prob
+    return log_prob.view(batch_size, k)

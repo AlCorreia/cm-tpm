@@ -77,6 +77,10 @@ def ce_loss(
         log_prob = dist.log_prob(x.unsqueeze(1).float())
         # Expand mask to broadcast to every pair (x, z)
         mask = mask.unsqueeze(1)
+        # The first two dimensions are batch_size and n_bins.
+        # The remaining dimensions are independent, and so we sum their log_prob
+        # starting at dimension 2
+        dim_start_sum = 2
     else:
         assert batch_size == int(n_bins / k)
         # Categorical probs as last dimension
@@ -88,8 +92,13 @@ def ce_loss(
         mask = mask.repeat_interleave(k, dim=0)
         x = x.repeat_interleave(k, dim=0)
         log_prob = dist.log_prob(x.float())
+        # The first dimension is batch_size * k.
+        # The remaining dimensions are independent, and so we sum their log_prob
+        # starting at dimension 1
+        dim_start_sum = 1
 
     log_prob = log_prob * mask
     if dim_start_sum is not None:
         log_prob = log_prob.sum(dim=[i for i in range(dim_start_sum, log_prob.ndim)])
     return log_prob.view(batch_size, k)
+

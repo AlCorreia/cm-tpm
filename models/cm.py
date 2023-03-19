@@ -56,7 +56,7 @@ class CLTBernoulliDecoder(nn.Module):
         log_prob_chunks = []
         logits_p_chunks = tuple([logits_p]) if n_chunks is None else logits_p.chunk(n_chunks, dim=0)
         for logits_p_chunk in logits_p_chunks:
-            lls = bce_loss(logits_p_chunk, x_doubled, dim_start_sum=None)
+            lls = bce_loss(logits_p_chunk, x_doubled, aggregate=False)
             log_prob_chunks.append(torch.einsum('bijk, bjk -> bij', lls, x_cond).sum(-1))
         log_prob_bins = torch.cat(log_prob_chunks, dim=1)
         return log_prob_bins
@@ -117,7 +117,7 @@ class CategoricalDecoder(nn.Module):
             log_prob_bins_top_k = ce_loss(self.net(z_top_k.view(batch_size * k, -1)), x, k=k, missing=missing)
             return log_prob_bins_top_k
         else:
-            log_prob_bins = torch.cat([ce_loss(self.net(z_chunk), x, missing) for z_chunk in z_chunks], dim=1)
+            log_prob_bins = torch.cat([ce_loss(self.net(z_chunk), x, k, missing) for z_chunk in z_chunks], dim=1)
             return log_prob_bins + log_w.unsqueeze(0)
 
 
@@ -147,9 +147,27 @@ class GaussianDecoder(nn.Module):
         missing: Optional[bool] = None,
         n_chunks: Optional[int] = None
     ):
-        if k is not None:
-            raise NotImplementedError
+        z_chunks = tuple([z]) if n_chunks is None else z.chunk(n_chunks, dim=0)
+        batch_size = x.shape[0]
 
+        if k is not None:
+            with torch.no_grad():
+                # Run approximate posterior to find the 'best' k z values for each x
+                log_prob_bins = torch.cat(
+                    [mse_loss(*self.forward_pass(z_chunk), x, k=None, missing=missing) for z_chunk in z_chunks], dim=1)
+                log_prob_bins = log_prob_bins + log_w.unsqueeze(0)
+                z_top_k = z[torch.topk(log_prob_bins, k=k, dim=-1)[1]]  # shape (batch_size, k, latent_dim)
+                mu_logvar = self.net(z)
+            log_prob_bins_top_k = mse_loss(*self.forward_pass(z_top_k.view(batch_size * k, -1)), x, k=k, missing=missing)
+            return log_prob_bins_top_k
+        else:
+            log_prob_bins = torch.cat([mse_loss(*self.forward_pass(z_chunk), x, k, missing) for z_chunk in z_chunks], dim=1)
+            return log_prob_bins + log_w.unsqueeze(0)
+
+    def forward_pass(
+        self,
+        z: torch.Tensor,
+    ):
         if self.learn_std:
             mu_logvar = self.net(z)
             mu, logvar = mu_logvar.chunk(2, dim=1)
@@ -159,10 +177,7 @@ class GaussianDecoder(nn.Module):
             mu = self.net(z)
             mu = self.mu_activation(mu)
             std = torch.full_like(mu, fill_value=self.min_std)
-        mu_std_chunks = [[mu], [std]] if n_chunks is None else [[*mu.chunk(n_chunks, 0)], [*std.chunk(n_chunks, 0)]]
-        log_prob = torch.cat(
-            [mse_loss(mu_std_chunks[0][i], mu_std_chunks[1][i], x, missing) for i in range(len(mu_std_chunks[0]))], dim=1)
-        return log_prob + log_w.unsqueeze(0)
+        return mu, std
 
     def sample_continuous(
         self,
@@ -191,9 +206,9 @@ class GaussianDecoder(nn.Module):
         if self.learn_std:
             raise Exception('Not implemented.')
         else:
-            components = self.mu_activation(self.decoder.net(z.to(device)))
+            components = self.mu_activation(self.net(z.to(device)))
             idx = torch.distributions.Categorical(logits=log_w).sample([z.size(0)])
-            samples = components[idx] + torch.randn_like(components[idx]) * self.decoder.min_std * std_correction
+            samples = components[idx] + torch.randn_like(components[idx]) * self.min_std * std_correction
         return samples
 
 

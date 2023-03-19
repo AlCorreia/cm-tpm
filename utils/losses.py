@@ -8,10 +8,14 @@ from torch.distributions import Categorical
 def bce_loss(
     logits_p: torch.Tensor,
     x: torch.Tensor,
+    k: Optional[int] = None,
     missing: Optional[bool] = None,
-    dim_start_sum: Optional[int] = 2,
-    eps: float = 1e-7
+    eps: float = 1e-7,
+    aggregate: Optional[bool] = True
 ):
+    if k is not None:
+        raise NotImplementedError
+
     x = x.unsqueeze(1)
     if missing is None or missing is True:
         mask = ~ torch.isnan(x)
@@ -23,8 +27,8 @@ def bce_loss(
     log_prob = x * torch.log(p + eps) + (1 - x) * torch.log(1 - p + eps)
     log_prob = log_prob * mask
 
-    if dim_start_sum is not None:
-        log_prob = log_prob.sum(dim=[i for i in range(dim_start_sum, log_prob.ndim)])
+    if aggregate:
+        log_prob = log_prob.sum(dim=[i for i in range(2, log_prob.ndim)])
     return log_prob
 
 
@@ -32,20 +36,48 @@ def mse_loss(
     loc: torch.Tensor,
     scale: torch.Tensor,
     x: torch.Tensor,
+    k: Optional[int] = None,
     missing: Optional[bool] = None,
-    dim_start_sum: Optional[int] = 2,
+    aggregate: Optional[bool] = True
 ):
+
+    batch_size, data_dim = x.shape[0], x.shape[1:]
+    n_bins = loc.shape[0]
+
+    if missing is None or missing is True:
+        mask = ~ torch.isnan(x)
+    else:
+        mask = torch.ones_like(x)
     x = torch.nan_to_num(x)
-    x = x.unsqueeze(1)
+
+    if k is None:
+        k = n_bins  # k is actually equal to n_bins in this case
+        # Compute log-probs for all combinations of x and z (logits) values
+        # This is done by unsqueezing the first dimension in x
+        x = x.unsqueeze(1)
+        mask = mask.unsqueeze(1)
+        # The first two dimensions are batch_size and n_bins.
+        # The remaining dimensions are independent, and so we sum their log_prob
+        # starting at dimension 2
+        dim_start_sum = 2
+    else:
+        assert batch_size == int(n_bins / k)
+        # Compute log-probs for each of x against corresponding k logits
+        # This is done by expanding the first dimension of x to batch_size * k
+        x = x.repeat_interleave(k, dim=0)
+        mask = mask.repeat_interleave(k, dim=0)
+        # The first dimension is batch_size * k.
+        # The remaining dimensions are independent, and so we sum their log_prob
+        # starting at dimension 1
+        dim_start_sum = 1
+
     var = (scale ** 2)
     log_scale = math.log(scale) if isinstance(scale, Real) else scale.log()
     log_prob = -((x - loc) ** 2) / (2 * var) - log_scale - math.log(math.sqrt(2 * math.pi))
-    if missing is None or missing is True:
-        mask = ~ torch.isnan(x)
-        log_prob = log_prob * mask
-    if dim_start_sum is not None:
-        log_prob = log_prob.sum(dim=[i for i in range(2, log_prob.ndim)])
-    return log_prob
+    log_prob = log_prob * mask
+    if aggregate:
+        log_prob = log_prob.sum(dim=[i for i in range(dim_start_sum, log_prob.ndim)])
+    return log_prob.view(batch_size, k)
 
 
 def ce_loss(
@@ -53,7 +85,7 @@ def ce_loss(
     x: torch.Tensor,
     k: Optional[int] = None,
     missing: Optional[bool] = None,
-    dim_start_sum: Optional[int] = 2,
+    aggregate: Optional[bool] = True
 ):
 
     batch_size, data_dim = x.shape[0], x.shape[1:]
@@ -98,7 +130,7 @@ def ce_loss(
         dim_start_sum = 1
 
     log_prob = log_prob * mask
-    if dim_start_sum is not None:
+    if aggregate:
         log_prob = log_prob.sum(dim=[i for i in range(dim_start_sum, log_prob.ndim)])
     return log_prob.view(batch_size, k)
 
